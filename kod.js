@@ -533,19 +533,29 @@ function getUrunStokBilgisi(urunAdi) {
 
 function getFaturaList(type) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(
-    type === "fatura" ? "Fatura_liste" : "Proforma_liste"
-  );
+  Logger.log("Received type: " + type); // Gelen type değerini kontrol et
+
+  // Sayfa isimlerini tam olarak tanımla
+  var sheetName =
+    type.toLowerCase() === "fatura" ? "Fatura_liste" : "Proforma_liste";
+  var sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    Logger.log("Sheet not found: " + sheetName);
+    return []; // Sayfa bulunamazsa boş array döndür
+  }
+
   var lastRow = sheet.getLastRow();
+  Logger.log("Last row in " + sheetName + ": " + lastRow);
 
   // Eğer veri yoksa boş array döndür
   if (lastRow < 2) {
-    Logger.log(`No data found in ${type}_liste`);
+    Logger.log("No data found in " + sheetName);
     return [];
   }
 
   var data = sheet.getRange("B2:H" + lastRow).getValues();
-  Logger.log(`Data fetched from ${type}_liste: ` + JSON.stringify(data)); // Hata ayıklama
+  Logger.log("Data fetched from " + sheetName + ": " + JSON.stringify(data));
 
   return data.map((row) => ({
     faturaNo: row[0] || "", // B sütunu
