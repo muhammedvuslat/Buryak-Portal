@@ -89,6 +89,24 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
   }
+  .urun-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap; /* Mobil için */
+}
+.urun-row input, .urun-row button {
+  flex: 1;
+  min-width: 100px;
+  padding: 8px;
+}
+.searchUrunResults {
+  position: absolute;
+  background: white;
+  border: 1px solid #ccc;
+  max-height: 150px;
+  overflow-y: auto;
+}
 </style>
 
     </style>
@@ -294,21 +312,24 @@
       }
 
       function addProductField() {
-        var container = document.getElementById("urunContainer");
-        var index = document.querySelectorAll(".urun-group").length; // Kaçıncı ürün olduğu
+  var container = document.getElementById("urunContainer");
+  var index = document.querySelectorAll(".urun-group").length;
 
-        var div = document.createElement("div");
-        div.classList.add("urun-group");
-        div.innerHTML = `
-    <input type="text" class="urun" placeholder="Ürün Adı" data-index="${index}" oninput="filterResultsUrun(this, ${index})"/>
-    <div class="searchUrunResults search-results" data-index="${index}"></div>
-    <input type="text" class="adet" placeholder="Adet" />
-    <input type="text" class="fiyat" placeholder="Fiyat" />
-    <input type="text" class="gInfoUrun" placeholder="Ürün Çarpan" disabled />
-    <button type="button" onclick="this.parentElement.remove()">Sil</button>
+  var div = document.createElement("div");
+  div.classList.add("urun-group");
+  div.innerHTML = `
+    <div class="urun-row">
+      <input type="text" class="urun" placeholder="Ürün Adı" data-index="${index}" oninput="filterResultsUrun(this, ${index})"/>
+      <div class="searchUrunResults search-results" data-index="${index}"></div>
+      <input type="text" class="adet" placeholder="Adet" />
+      <input type="text" class="fiyat" placeholder="Fiyat" />
+      <input type="text" class="gInfoUrun" placeholder="Ürün Çarpan" disabled />
+      <input type="text" class="urunStogu" placeholder="Ürün Stoğu" data-index="${index}" disabled />
+      <button type="button" onclick="this.parentElement.parentElement.remove()">Sil</button>
+    </div>
   `;
-        container.appendChild(div);
-      }
+  container.appendChild(div);
+}
     </script>
   </head>
   <body>

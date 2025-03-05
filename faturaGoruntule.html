@@ -1,9 +1,142 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
   <head>
     <base target="_top" />
+    <meta charset="UTF-8" />
+    <title>Fatura Görüntüleme</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #394755 0%, #2570bb 100%);
+        padding: 20px;
+      }
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        max-width: 800px;
+        margin: auto;
+      }
+      .button-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      button {
+        padding: 10px;
+        border-radius: 5px;
+        border: none;
+        color: white;
+        cursor: pointer;
+      }
+      .proforma-btn {
+        background: #e4292b;
+      }
+      .fatura-btn {
+        background: #0f6b12;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        text-align: left;
+      }
+      .action-btn {
+        background: #2570bb;
+        margin-right: 5px;
+      }
+    </style>
+    <script>
+      function viewFaturalar(type) {
+        console.log("viewFaturalar called with type:", type); // Hata ayıklama
+        google.script.run
+          .withSuccessHandler(function (data) {
+            console.log("Data received:", data); // Gelen veriyi kontrol et
+            var tbody = document.getElementById("faturaTableBody");
+            tbody.innerHTML = ""; // Tabloyu temizle
+            if (data && data.length > 0) {
+              data.forEach(function (item, index) {
+                var row = document.createElement("tr");
+                row.innerHTML = `
+                  <td>${item.faturaNo || "Bilinmiyor"}</td>
+                  <td>${item.musteri || "Bilinmiyor"}</td>
+                  <td>${item.tarih || "Bilinmiyor"}</td>
+                  <td>
+                    <button class="action-btn" onclick="viewPDF('${
+                      item.pdfUrl || ""
+                    }')">🔍 Görüntüle</button>
+                    <button class="action-btn" onclick="editFatura(${index}, '${type}')">✏️ Düzenle</button>
+                  </td>
+                `;
+                tbody.appendChild(row);
+              });
+            } else {
+              tbody.innerHTML =
+                "<tr><td colspan='4'>Veri bulunamadı.</td></tr>";
+            }
+          })
+          .withFailureHandler(function (error) {
+            console.error("Error:", error); // Hata varsa konsola yaz
+            alert("Bir hata oluştu: " + error.message);
+          })
+          .getFaturaList(type);
+      }
+
+      function viewPDF(url) {
+        if (url) {
+          window.open(url, "_blank");
+        } else {
+          alert("PDF URL bulunamadı.");
+        }
+      }
+
+      function editFatura(index, type) {
+        console.log("Editing index:", index, "type:", type);
+        google.script.run
+          .withSuccessHandler(function (data) {
+            window.location.href = `${myURL()}?page=${
+              type === "fatura" ? "faturaKes" : "proformaKes"
+            }&edit=${index}`;
+          })
+          .withFailureHandler(function (error) {
+            console.error("Edit error:", error);
+            alert("Düzenleme hatası: " + error.message);
+          })
+          .getFaturaByIndex(index, type);
+      }
+
+      function myURL() {
+        return google.script.run.withSuccessHandler((url) => url).myURL();
+      }
+    </script>
   </head>
   <body>
-    Fatura Görüntüleme Sayfası
+    <div class="container">
+      <h2>Faturaları Görüntüle</h2>
+      <div class="button-group">
+        <button class="fatura-btn" onclick="viewFaturalar('fatura')">
+          Fatura Görüntüle
+        </button>
+        <button class="proforma-btn" onclick="viewFaturalar('proforma')">
+          Proforma Görüntüle
+        </button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Fatura No</th>
+            <th>Müşteri</th>
+            <th>Tarih</th>
+            <th>İşlemler</th>
+          </tr>
+        </thead>
+        <tbody id="faturaTableBody"></tbody>
+      </table>
+    </div>
   </body>
 </html>

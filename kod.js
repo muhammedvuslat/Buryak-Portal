@@ -332,9 +332,16 @@ function getNextFaturaNoProforma() {
   var sheet = ss.getSheetByName("Proforma_liste");
 
   var data = sheet.getRange("B:B").getValues().flat().filter(String); // Boş olmayanları al
-  var lastFaturaNo = data.length > 0 ? parseInt(data[data.length - 1]) : 1000; // Son dolu hücreyi al
+  var lastFaturaNo = data.length > 0 ? data[data.length - 1] : "P1000"; // Varsayılan P1000
 
-  return (lastFaturaNo + 1).toString();
+  // Eğer son numara P ile başlıyorsa, sayıyı çıkar ve artır
+  if (lastFaturaNo.startsWith("P")) {
+    var number = parseInt(lastFaturaNo.replace("P", ""), 10);
+    if (isNaN(number)) number = 1000; // NaN kontrolü
+    return "P" + (number + 1);
+  } else {
+    return "P" + (parseInt(lastFaturaNo, 10) + 1); // Eski veriler için
+  }
 }
 
 // Proforma  PDF oluştur ve Drive'a kaydet
@@ -522,4 +529,37 @@ function getUrunStokBilgisi(urunAdi) {
     }
   }
   return "Stokta yok";
+}
+
+function getFaturaList(type) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(
+    type === "fatura" ? "Fatura_liste" : "Proforma_liste"
+  );
+  var lastRow = sheet.getLastRow();
+
+  // Eğer veri yoksa boş array döndür
+  if (lastRow < 2) {
+    Logger.log(`No data found in ${type}_liste`);
+    return [];
+  }
+
+  var data = sheet.getRange("B2:H" + lastRow).getValues();
+  Logger.log(`Data fetched from ${type}_liste: ` + JSON.stringify(data)); // Hata ayıklama
+
+  return data.map((row) => ({
+    faturaNo: row[0] || "", // B sütunu
+    musteri: row[2] || "", // D sütunu
+    tarih: row[3] || "", // E sütunu
+    pdfUrl: row[6] || "", // H sütunu
+  }));
+}
+
+function getFaturaByIndex(index, type) {
+  var list = getFaturaList(type);
+  Logger.log(
+    `Fetching item at index ${index} from ${type}: ` +
+      JSON.stringify(list[index])
+  );
+  return list[index];
 }
