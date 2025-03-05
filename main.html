@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      a {
+        text-decoration: none;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      .container {
+        width: 80%;
+        max-width: 500px;
+        padding: 1.5rem;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        text-align: center;
+      }
+
+      h1 {
+        color: #2d3748;
+        font-size: 2rem;
+        margin-bottom: 1.5rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .button-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        width: 100%;
+      }
+
+      .nav-button {
+        width: 90%;
+        padding: 1.2rem;
+        border: none;
+        border-radius: 12px;
+        background: white;
+        color: #4a5568;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      .nav-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        background: #007bff;
+        color: white;
+      }
+
+      @media (max-width: 600px) {
+        .container {
+          width: 95%;
+          padding: 1rem;
+        }
+
+        h1 {
+          font-size: 1.8rem;
+        }
+
+        .nav-button {
+          font-size: 1rem;
+          padding: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Fatura & Stok Yönetimi</h1>
+      <div class="button-grid">
+        <a href="<?= myURL(); ?>?page=faturaKes" class="nav-button"
+          >📄 Fatura Kes</a
+        >
+        <a href="<?= myURL(); ?>?page=stokTakip" class="nav-button"
+          >📦 Stok Takip</a
+        >
+        <a href="<?= myURL(); ?>?page=proformaKes" class="nav-button"
+          >📑 Proforma Kes</a
+        >
+        <a href="<?= myURL(); ?>?page=faturaGoruntule" class="nav-button"
+          >🔍 Faturaları Görüntüle</a
+        >
+        <a href="<?= myURL(); ?>?page=musteriYonet" class="nav-button"
+          >👥 Müşteri Yönet</a
+        >
+      </div>
+    </div>
+  </body>
+</html>

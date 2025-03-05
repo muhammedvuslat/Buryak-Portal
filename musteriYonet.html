@@ -1,0 +1,262 @@
+<!-- musteriYonet.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      .home-button {
+        padding: 12px 25px;
+        background: #007bff;
+        color: white !important;
+        border-radius: 25px;
+        text-decoration: none;
+        font-weight: 600;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .home-button:hover {
+        background: #0056b3;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      }
+      body {
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      .container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .search-section {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 10px;
+      }
+
+      input,
+      button {
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+      }
+
+      button {
+        background: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+
+      th,
+      td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .edit-form {
+        margin-top: 30px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <a href="<?= myURL(); ?>?page=main" class="home-button">🏠 Ana Sayfa</a>
+
+      <h2>Müşteri Yönetimi</h2>
+
+      <!-- Arama Bölümü -->
+      <div class="search-section">
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="Firma veya ICE Kod Ara"
+        />
+        <button onclick="searchCustomer()">Ara</button>
+        <button onclick="showAddForm()" style="background: #28a745">
+          Yeni Müşteri Ekle
+        </button>
+      </div>
+
+      <!-- Müşteri Ekle/Düzenle Formu -->
+      <div id="editForm" class="edit-form" style="display: none">
+        <h3 id="formTitle">Yeni Müşteri Ekle</h3>
+        <input type="hidden" id="rowIndex" />
+        <div
+          style="
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+          "
+        >
+          <div>
+            <label>Firma Adı</label>
+            <input type="text" id="firma" required />
+          </div>
+          <div>
+            <label>ICE Kodu</label>
+            <input type="text" id="ice" required />
+          </div>
+          <div>
+            <label>Adres</label>
+            <input type="text" id="adres" />
+          </div>
+          <div>
+            <label>Telefon</label>
+            <input type="text" id="telefon" />
+          </div>
+          <div>
+            <label>E-mail</label>
+            <input type="email" id="email" />
+          </div>
+          <div>
+            <label>Referans Kişi</label>
+            <input type="text" id="referans" />
+          </div>
+          <div style="grid-column: span 2">
+            <label>Notlar</label>
+            <textarea id="notlar" rows="3"></textarea>
+          </div>
+        </div>
+        <div style="margin-top: 20px; text-align: right">
+          <button onclick="saveCustomer()">Kaydet</button>
+          <button onclick="cancelEdit()" style="background: #dc3545">
+            İptal
+          </button>
+        </div>
+      </div>
+      <!-- Müşteri Listesi Tablosu -->
+      <div id="customerList"></div>
+    </div>
+
+    <script>
+      // Sayfa yüklendiğinde müşterileri çek
+      document.addEventListener("DOMContentLoaded", loadCustomers);
+
+      function loadCustomers() {
+        google.script.run
+          .withSuccessHandler(updateCustomerList)
+          .getAllCustomers();
+      }
+
+      function updateCustomerList(customers) {
+        let html = `<table>
+                <tr>
+                    <th>Firma</th>
+                    <th>Adres</th>
+                    <th>ICE Kodu</th>
+                    <th>Telefon</th>
+                    <th>E-mail</th>
+                    <th>Notlar</th>
+                    <th>Referans Kişi</th>
+                    <th>İşlemler</th>
+                </tr>`;
+
+        customers.forEach((customer, index) => {
+          html += `<tr>
+                    <td>${customer.firma}</td>
+                    <td>${customer.adres}</td>
+                    <td>${customer.ice}</td>
+                    <td>${customer.telefon}</td>
+                    <td>${customer.email}</td>
+                    <td>${customer.notlar}</td>
+                    <td>${customer.referans}</td>
+                    <td>
+                        <button onclick="editCustomer(${index})">Düzenle</button>
+                    </td>
+                </tr>`;
+        });
+
+        html += `</table>`;
+        document.getElementById("customerList").innerHTML = html;
+      }
+
+      function searchCustomer() {
+        const query = document.getElementById("searchInput").value;
+        google.script.run
+          .withSuccessHandler(updateCustomerList)
+          .searchCustomers(query);
+      }
+
+      function showAddForm() {
+        document.getElementById("editForm").style.display = "block";
+        document.getElementById("formTitle").textContent = "Yeni Müşteri Ekle";
+        clearForm();
+      }
+
+      function editCustomer(index) {
+        google.script.run
+          .withSuccessHandler((customer) => {
+            document.getElementById("editForm").style.display = "block";
+            document.getElementById("formTitle").textContent =
+              "Müşteri Düzenle";
+            document.getElementById("rowIndex").value = index;
+
+            // Formu doldur
+            document.getElementById("firma").value = customer.firma;
+            document.getElementById("ice").value = customer.ice;
+            document.getElementById("adres").value = customer.adres;
+            document.getElementById("telefon").value = customer.telefon;
+            document.getElementById("email").value = customer.email;
+            document.getElementById("referans").value = customer.referans;
+            document.getElementById("notlar").value = customer.notlar;
+          })
+          .getCustomerByIndex(index);
+      }
+
+      function saveCustomer() {
+        const customerData = {
+          firma: document.getElementById("firma").value,
+          ice: document.getElementById("ice").value,
+          adres: document.getElementById("adres").value,
+          telefon: document.getElementById("telefon").value,
+          email: document.getElementById("email").value,
+          referans: document.getElementById("referans").value,
+          notlar: document.getElementById("notlar").value,
+          rowIndex: document.getElementById("rowIndex").value,
+        };
+
+        google.script.run
+          .withSuccessHandler(() => {
+            loadCustomers();
+            cancelEdit();
+          })
+          .saveCustomerData(customerData);
+      }
+
+      function cancelEdit() {
+        document.getElementById("editForm").style.display = "none";
+        clearForm();
+      }
+
+      function clearForm() {
+        document.getElementById("rowIndex").value = "";
+        document
+          .querySelectorAll("#editForm input, #editForm textarea")
+          .forEach((field) => {
+            field.value = "";
+          });
+      }
+    </script>
+  </body>
+</html>

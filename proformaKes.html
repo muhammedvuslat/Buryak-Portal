@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <!-- SweetAlert2 Kütüphanesi -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <base target="_top" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Proforma Kes</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: auto;
+        margin: 0;
+        overflow-y: auto;
+      }
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+      }
+      h2 {
+        color: #333;
+        margin-bottom: 20px;
+      }
+      input,
+      select,
+      button {
+        width: 100%;
+        max-width: 350px;
+        padding: 10px;
+        margin: 8px 0;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 16px;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      .hidden {
+        display: none;
+      }
+      .search-results {
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      .result-item {
+        padding: 5px;
+        cursor: pointer;
+      }
+      .result-item:hover {
+        background-color: #f0f0f0;
+      }
+  .home-button-container {
+    top: 20px;
+  }
+
+  .home-button {
+    padding: 12px 25px;
+    background: #007bff;
+    color: white !important;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .home-button:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+</style>
+
+    </style>
+    <script>
+      // Sayfa açıldığında erişim kontrolü
+      google.script.run
+        .withSuccessHandler(function (isAllowed) {
+          if (!isAllowed) {
+            document.body.innerHTML =
+              "<h3 style='color:red; text-align:center;'>Erişim izniniz yok!</h3>";
+          } else {
+            document.getElementById("mainContent").classList.remove("hidden");
+            getFaturaNo(); // Sayfa açılınca fatura no çek
+            getMusteriListesi(); // Müşteri listesini al
+            //------------------------------------------------------
+            getUrunListesi(); //! Değişimmmmmmmmmmmmmmmmmmmmmm
+            //------------------------------------------------------
+          }
+        })
+        .checkAccess();
+
+      // Müşteri listesini sayfa açıldığında al
+      function getMusteriListesi() {
+        google.script.run
+          .withSuccessHandler(function (musteriListesi) {
+            var musteriInput = document.getElementById("musteri");
+            musteriInput.addEventListener("input", function () {
+              filterResults(musteriListesi);
+            });
+          })
+          .getMusteriListesi();
+      }
+
+      // Müşteri adını seçmek
+      function selectMusteri(musteriAdi) {
+        document.getElementById("musteri").value = musteriAdi;
+        document.getElementById("searchResults").innerHTML = ""; // Arama sonuçlarını temizle
+
+        google.script.run
+          .withSuccessHandler(function (musteriGInfo) {
+            document.getElementById("gInfo").value = musteriGInfo;
+
+            // Sheets'e F25 hücresine müşteri bilgisini yazdır
+            google.script.run.updateFaturaSheetProforma(musteriGInfo);
+          })
+          .getMusteriGInfo(musteriAdi);
+      }
+
+      // Arama sonuçlarını filtreleme ve gösterme
+      function filterResults(musteriListesi) {
+        var query = document.getElementById("musteri").value.toLowerCase();
+        var filteredResults = musteriListesi.filter(function (musteri) {
+          return musteri.toLowerCase().includes(query);
+        });
+
+        var resultsDiv = document.getElementById("searchResults");
+        resultsDiv.innerHTML = ""; // Mevcut sonuçları temizle
+
+        if (filteredResults.length > 0) {
+          filteredResults.forEach(function (musteri) {
+            var resultItem = document.createElement("div");
+            resultItem.classList.add("result-item");
+            resultItem.textContent = musteri;
+            resultItem.onclick = function () {
+              selectMusteri(musteri);
+            };
+            resultsDiv.appendChild(resultItem);
+          });
+        }
+      }
+
+      //------------------------------------------------------
+      //Ürün listesini sayfa açıldığında al
+      function getUrunListesi() {
+        google.script.run
+          .withSuccessHandler(function (urunListesi) {
+            var urunInput = document.getElementById("urun");
+            urunInput.addEventListener("input", function () {
+              filterResultsUrun(urunListesi);
+            });
+          })
+          .getUrunListesi();
+      }
+
+      // Ürün adını seçmek
+      function selectUrun(urunAdı, index) {
+        var urunInput = document.querySelector(`.urun[data-index="${index}"]`);
+        urunInput.value = urunAdı;
+
+        var searchResultsDiv = document.querySelector(
+          `.searchUrunResults[data-index="${index}"]`
+        );
+        searchResultsDiv.innerHTML = ""; // Arama sonuçlarını temizle
+
+        google.script.run
+          .withSuccessHandler(function (urunGInfo) {
+            var gInfoInput =
+              urunInput.parentElement.querySelector(".gInfoUrun");
+            gInfoInput.value = urunGInfo;
+
+            google.script.run.updateFaturaSheetUrun(urunGInfo);
+          })
+          .getUrunGInfo(urunAdı);
+      }
+
+      // Ürün Arama sonuçlarını filtreleme ve gösterme
+      function filterResultsUrun(inputElement, index) {
+        var query = inputElement.value.toLowerCase();
+
+        google.script.run
+          .withSuccessHandler(function (urunListesi) {
+            var filteredResultsUrun = urunListesi.filter(function (urun) {
+              return urun.toLowerCase().includes(query);
+            });
+
+            var resultsDivUrun = document.querySelector(
+              `.searchUrunResults[data-index="${index}"]`
+            );
+            resultsDivUrun.innerHTML = ""; // Mevcut sonuçları temizle
+
+            if (filteredResultsUrun.length > 0) {
+              filteredResultsUrun.forEach(function (urun) {
+                var resultItemUrun = document.createElement("div");
+                resultItemUrun.classList.add("result-item");
+                resultItemUrun.textContent = urun;
+                resultItemUrun.onclick = function () {
+                  selectUrun(urun, index);
+                };
+                resultsDivUrun.appendChild(resultItemUrun);
+              });
+            }
+          })
+          .getUrunListesi();
+      }
+
+      //------------------------------------------------------
+
+      // Otomatik fatura numarasını getiren fonksiyon
+      function getFaturaNo() {
+        google.script.run
+          .withSuccessHandler(function (faturaNo) {
+            document.getElementById("faturaNo").value = faturaNo;
+          })
+          .getNextFaturaNoProforma();
+      }
+
+      // Fatura kaydetme fonksiyonu
+      function kaydet() {
+        var faturaNo = document.getElementById("faturaNo").value.trim();
+        var tarih = document.getElementById("tarih").value;
+        var musteri = document.getElementById("musteri").value.trim();
+
+        var urunInputs = document.querySelectorAll(".urun-group");
+        var urunler = [];
+
+        urunInputs.forEach(function (group) {
+          var urun = group.querySelector(".urun").value.trim();
+          var adet = group.querySelector(".adet").value.trim();
+          var fiyat = group.querySelector(".fiyat").value.trim();
+          var gInfoUrun = group.querySelector(".gInfoUrun").value.trim(); // Yeni eklenen satır
+
+          if (urun && adet && fiyat) {
+            urunler.push({
+              ad: urun,
+              adet: adet,
+              fiyat: fiyat,
+              gInfo: gInfoUrun, // Çarpan bilgisini ekle
+            });
+          }
+        });
+        if (urunler.length === 0) {
+            Swal.fire({
+            icon: "error",
+            title: "Hata!",
+            text: "En az bir ürün eklemelisiniz!",
+            confirmButtonColor: "#d33",
+            confirmButtonText: "Tamam"
+        });
+          return;
+        }
+
+        // Formu temizle ama faturaNo'yu yenile
+        document.getElementById("faturaForm").reset();
+        getFaturaNo();
+
+        var musteriAdi = document.getElementById("musteri").value.trim(); // Müşteri adını al
+
+        google.script.run
+          .withSuccessHandler(function (pdfUrl) {
+            if (pdfUrl) {
+              window.open(pdfUrl, "_blank");
+              Swal.fire({
+              icon: "success",
+              title: "Başarılı!",
+              text: "Fatura kaydedildi. PDF yeni sekmede açılıyor!",
+              confirmButtonColor: "#28a745",
+              confirmButtonText: "Tamam"
+                });
+            }
+        })
+          .faturaEkleProforma(faturaNo, tarih, urunler, musteri);
+          
+      }
+
+      function addProductField() {
+        var container = document.getElementById("urunContainer");
+        var index = document.querySelectorAll(".urun-group").length; // Kaçıncı ürün olduğu
+
+        var div = document.createElement("div");
+        div.classList.add("urun-group");
+        div.innerHTML = `
+    <input type="text" class="urun" placeholder="Ürün Adı" data-index="${index}" oninput="filterResultsUrun(this, ${index})"/>
+    <div class="searchUrunResults search-results" data-index="${index}"></div>
+    <input type="text" class="adet" placeholder="Adet" />
+    <input type="text" class="fiyat" placeholder="Fiyat" />
+    <input type="text" class="gInfoUrun" placeholder="Ürün Çarpan" disabled />
+    <button type="button" onclick="this.parentElement.remove()">Sil</button>
+  `;
+        container.appendChild(div);
+      }
+    </script>
+  </head>
+  <body>
+    <div class="container hidden" id="mainContent">
+      <div class="home-button-container">
+    <a href="<?= myURL(); ?>?page=main" class="home-button">🏠 Ana Sayfa</a>
+  </div>
+      <h2>Proforma Kes</h2>
+      <form id="faturaForm">
+        <input type="text" id="faturaNo" placeholder="Fatura No" readonly />
+        <label for="tarih">Tarih:</label>
+        <input type="date" id="tarih" />
+        <input type="text" id="musteri" placeholder="Müşteri Adı" />
+        <div id="searchResults" class="search-results"></div>
+        <input type="text" id="gInfo" placeholder="Müşteri Bilgisi" disabled />
+        <button type="button" onclick="kaydet()">Kaydet</button>
+        <div id="urunContainer"></div>
+      </form>
+      <button onclick="addProductField()">Yeni Ürün Ekle</button>
+    </div>
+  </body>
+</html>
