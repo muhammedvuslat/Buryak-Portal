@@ -65,9 +65,24 @@
         .checkAccess();
 
       function initialize() {
+        console.log("Initializing...");
         google.script.run
           .withSuccessHandler((no) => {
-            document.getElementById("faturaNo").value = no;
+            console.log("Received proformaNo:", no);
+            if (no) {
+              document.getElementById("faturaNo").value = no;
+            } else {
+              console.warn("Proforma No is empty or null");
+              Swal.fire("Uyarı!", "Proforma numarası alınamadı.", "warning");
+            }
+          })
+          .withFailureHandler((error) => {
+            console.error("Failed to get proformaNo:", error);
+            Swal.fire(
+              "Hata!",
+              "Proforma numarası alınamadı: " + error.message,
+              "error"
+            );
           })
           .getNextProformaNo();
       }
@@ -171,8 +186,23 @@
         };
         google.script.run
           .withSuccessHandler((url) => {
-            window.open(url, "_blank");
-            Swal.fire("Başarılı!", "Proforma kaydedildi.", "success");
+            Swal.fire({
+              title: "Başarılı!",
+              text: "Proforma Drive’a kaydedildi. İndirmek ister misiniz?",
+              icon: "success",
+              showCancelButton: true,
+              confirmButtonText: "Evet",
+              cancelButtonText: "Hayır",
+            }).then((result) => {
+              if (result.isConfirmed) {
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `Proforma_${proforma.musteri}_${proforma.tarih}_${proforma.no}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }
+            });
             document.getElementById("proformaForm").reset();
             initialize();
           })

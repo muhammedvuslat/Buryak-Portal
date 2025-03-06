@@ -55,19 +55,47 @@
       </form>
     </div>
     <script>
+      console.log("Fatura Kes page loaded"); // Sayfa yüklendi mi?
+
       google.script.run
         .withSuccessHandler((isAllowed) => {
-          if (!isAllowed)
+          console.log("Access check result:", isAllowed);
+          if (!isAllowed) {
             document.body.innerHTML =
               "<h2 style='color: red; text-align: center;'>Erişim izniniz yok!</h2>";
-          else initialize();
+          } else {
+            initialize();
+          }
+        })
+        .withFailureHandler((error) => {
+          console.error("Access check failed:", error);
+          Swal.fire(
+            "Hata!",
+            "Erişim kontrolü başarısız: " + error.message,
+            "error"
+          );
         })
         .checkAccess();
 
       function initialize() {
+        console.log("Initializing...");
         google.script.run
           .withSuccessHandler((no) => {
-            document.getElementById("faturaNo").value = no;
+            console.log("Received faturaNo:", no);
+            if (no) {
+              document.getElementById("faturaNo").value = no;
+            } else {
+              console.warn("Fatura No is empty or null");
+              Swal.fire("Uyarı!", "Fatura numarası alınamadı.", "warning");
+            }
+          })
+          .withFailureHandler((error) => {
+            console.error("Failed to get faturaNo:", error);
+            Swal.fire(
+              "Hata!",
+              "Fatura numarası alınamadı: " + error.message,
+              "error"
+            );
           })
           .getNextFaturaNo();
       }
@@ -173,8 +201,23 @@
         };
         google.script.run
           .withSuccessHandler((url) => {
-            window.open(url, "_blank");
-            Swal.fire("Başarılı!", "Fatura kaydedildi.", "success");
+            Swal.fire({
+              title: "Başarılı!",
+              text: "Fatura Drive’a kaydedildi. İndirmek ister misiniz?",
+              icon: "success",
+              showCancelButton: true,
+              confirmButtonText: "Evet",
+              cancelButtonText: "Hayır",
+            }).then((result) => {
+              if (result.isConfirmed) {
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `Fatura_${fatura.musteri}_${fatura.tarih}_${fatura.no}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }
+            });
             document.getElementById("faturaForm").reset();
             initialize();
           })

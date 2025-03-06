@@ -43,37 +43,77 @@ function getNextFaturaNo() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Fatura_liste");
   const currentYear = new Date().getFullYear().toString();
-  const data = sheet
-    .getRange("B2:B" + sheet.getLastRow())
-    .getValues()
-    .flat()
-    .filter(String);
-  const lastNo = data.length > 0 ? data[data.length - 1] : `${currentYear}0000`;
+
+  if (!sheet) {
+    Logger.log("Fatura_liste sheet not found");
+    return `${currentYear}0001`; // Varsayılan
+  }
+
+  const lastRow = sheet.getLastRow();
+  const data =
+    lastRow > 1
+      ? sheet
+          .getRange("B2:B" + lastRow)
+          .getValues()
+          .flat()
+          .filter((v) => v !== "")
+      : [];
+  Logger.log("Fatura_liste data: " + JSON.stringify(data));
+
+  // Son numarayı al, yoksa varsayılan kullan
+  let lastNo = data.length > 0 ? data[data.length - 1] : `${currentYear}0000`;
+  Logger.log("Raw lastNo: " + lastNo + " (type: " + typeof lastNo + ")");
+
+  // lastNo’yu string’e zorla
+  lastNo = String(lastNo || `${currentYear}0000`);
+  Logger.log("Converted lastNo: " + lastNo);
+
+  // Yıl ve sıra numarasını ayır
   const lastYear = lastNo.slice(0, 4);
   const lastSeq = parseInt(lastNo.slice(4)) || 0;
   const newSeq = lastYear === currentYear ? lastSeq + 1 : 1;
-  return `${currentYear}${String(newSeq).padStart(4, "0")}`;
+  const newNo = `${currentYear}${String(newSeq).padStart(4, "0")}`;
+  Logger.log("Generated faturaNo: " + newNo);
+  return newNo;
 }
 
 function getNextProformaNo() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Proforma_liste");
   const currentYear = new Date().getFullYear().toString();
-  const data = sheet
-    .getRange("B2:B" + sheet.getLastRow())
-    .getValues()
-    .flat()
-    .filter(String);
-  const lastNo =
-    data.length > 0
-      ? data[data.length - 1].replace("P", "")
-      : `${currentYear}0000`;
+
+  if (!sheet) {
+    Logger.log("Proforma_liste sheet not found");
+    return `P${currentYear}0001`; // Varsayılan
+  }
+
+  const lastRow = sheet.getLastRow();
+  const data =
+    lastRow > 1
+      ? sheet
+          .getRange("B2:B" + lastRow)
+          .getValues()
+          .flat()
+          .filter((v) => v !== "")
+      : [];
+  Logger.log("Proforma_liste data: " + JSON.stringify(data));
+
+  // Son numarayı al, yoksa varsayılan kullan
+  let lastNo = data.length > 0 ? data[data.length - 1] : `${currentYear}0000`;
+  Logger.log("Raw lastNo: " + lastNo + " (type: " + typeof lastNo + ")");
+
+  // lastNo’yu string’e zorla ve P’yi kaldır
+  lastNo = String(lastNo || `${currentYear}0000`).replace("P", "");
+  Logger.log("Converted lastNo (without P): " + lastNo);
+
+  // Yıl ve sıra numarasını ayır
   const lastYear = lastNo.slice(0, 4);
   const lastSeq = parseInt(lastNo.slice(4)) || 0;
   const newSeq = lastYear === currentYear ? lastSeq + 1 : 1;
-  return `P${currentYear}${String(newSeq).padStart(4, "0")}`;
+  const newNo = `P${currentYear}${String(newSeq).padStart(4, "0")}`;
+  Logger.log("Generated proformaNo: " + newNo);
+  return newNo;
 }
-
 function getMusteriList() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Müşteri_bilgi");
@@ -120,6 +160,37 @@ function getUrunInfo(name) {
   };
 }
 
+function createPDF(sheetName, fileName, folder, tarih, formNo) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  const url =
+    ss.getUrl().replace(/edit$/, "") +
+    "export?format=pdf" +
+    "&gid=" +
+    sheet.getSheetId() +
+    "&range=A11:H66" +
+    "&size=A4" +
+    "&portrait=true" +
+    "&fitw=true" +
+    "&gridlines=false";
+
+  // URL’den PDF blob’u al
+  const response = UrlFetchApp.fetch(url, {
+    headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() },
+  });
+  const blob = response.getBlob().setName(fileName);
+
+  // Drive’a kaydet
+  const file = folder.createFile(blob);
+  return file.getUrl();
+}
+
+function clearRange(sheetName, range) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  sheet.getRange(range).clearContent();
+}
+
 function saveFatura(fatura) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Faturalar");
@@ -130,12 +201,14 @@ function saveFatura(fatura) {
     .getValues();
   const stokMap = new Map(stokData);
 
+  // Stok kontrolü
   for (const u of fatura.urunler) {
     const mevcut = parseInt(stokMap.get(u.ad) || 0);
     if (mevcut < parseInt(u.adet))
       throw new Error(`${u.ad} için yetersiz stok!`);
   }
 
+  // Faturalar sayfasını güncelle
   sheet.getRange("G18").setValue(fatura.no);
   sheet.getRange("G20").setValue(fatura.tarih);
   sheet.getRange("F25").setValue(getMusteriInfo(fatura.musteri));
@@ -148,22 +221,31 @@ function saveFatura(fatura) {
     sheet.getRange(`G${row}`).setValue(u.adet * u.fiyat);
   });
 
+  // Verilerin işlenmesini bekle
+  SpreadsheetApp.flush();
+
+  // PDF oluştur
   const year = new Date().getFullYear().toString();
   const folder = getOrCreateYearFolder(
     "1sW_DnDrs3HgeK3e7DUCQ2vIcix7VpfoY",
     year
   );
-  const pdfBlob = sheet.getParent().getAs("application/pdf");
-  const file = folder.createFile(
-    pdfBlob.setName(`Fatura_${fatura.musteri}_${fatura.tarih}_${fatura.no}.pdf`)
+  const pdfUrl = createPDF(
+    "Faturalar",
+    `Fatura_${fatura.musteri}_${fatura.tarih}_${fatura.no}.pdf`,
+    folder,
+    fatura.tarih,
+    fatura.no
   );
 
+  // Stok güncelle
   fatura.urunler.forEach((u) => {
     const row = stokData.findIndex((r) => r[0] === u.ad) + 2;
     const yeniStok = parseInt(stokMap.get(u.ad)) - parseInt(u.adet);
     stokSheet.getRange(`B${row}`).setValue(yeniStok);
   });
 
+  // Fatura_liste güncelle
   const lastRow = listeSheet.getLastRow() + 1;
   listeSheet
     .getRange(`B${lastRow}:H${lastRow}`)
@@ -175,11 +257,14 @@ function saveFatura(fatura) {
         fatura.tarih,
         "Plaform",
         sheet.getRange("G50").getValue(),
-        file.getUrl(),
+        pdfUrl,
       ],
     ]);
 
-  return file.getUrl();
+  // Temizlik
+  clearRange("Faturalar", "C33:G47");
+
+  return pdfUrl;
 }
 
 function saveProforma(proforma) {
@@ -187,6 +272,7 @@ function saveProforma(proforma) {
   const sheet = ss.getSheetByName("Proforma");
   const listeSheet = ss.getSheetByName("Proforma_liste");
 
+  // Proforma sayfasını güncelle
   sheet.getRange("G18").setValue(proforma.no);
   sheet.getRange("G20").setValue(proforma.tarih);
   sheet.getRange("F25").setValue(getMusteriInfo(proforma.musteri));
@@ -199,18 +285,24 @@ function saveProforma(proforma) {
     sheet.getRange(`G${row}`).setValue(u.adet * u.fiyat);
   });
 
+  // Verilerin işlenmesini bekle
+  SpreadsheetApp.flush();
+
+  // PDF oluştur
   const year = new Date().getFullYear().toString();
   const folder = getOrCreateYearFolder(
     "1sW_DnDrs3HgeK3e7DUCQ2vIcix7VpfoY",
     year
   );
-  const pdfBlob = sheet.getParent().getAs("application/pdf");
-  const file = folder.createFile(
-    pdfBlob.setName(
-      `Proforma_${proforma.musteri}_${proforma.tarih}_${proforma.no}.pdf`
-    )
+  const pdfUrl = createPDF(
+    "Proforma",
+    `Proforma_${proforma.musteri}_${proforma.tarih}_${proforma.no}.pdf`,
+    folder,
+    proforma.tarih,
+    proforma.no
   );
 
+  // Proforma_liste güncelle
   const lastRow = listeSheet.getLastRow() + 1;
   listeSheet
     .getRange(`B${lastRow}:H${lastRow}`)
@@ -222,11 +314,14 @@ function saveProforma(proforma) {
         proforma.tarih,
         "Plaform",
         sheet.getRange("G50").getValue(),
-        file.getUrl(),
+        pdfUrl,
       ],
     ]);
 
-  return file.getUrl();
+  // Temizlik
+  clearRange("Proforma", "C33:G47");
+
+  return pdfUrl;
 }
 
 function getFaturaList(type) {
