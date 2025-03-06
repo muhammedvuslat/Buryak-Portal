@@ -1,4 +1,3 @@
-// Ana giriş noktası
 function doGet(e) {
   let page = e.parameter.page || "main";
   return HtmlService.createTemplateFromFile(page)
@@ -7,12 +6,10 @@ function doGet(e) {
     .addMetaTag("viewport", "width=device-width, initial-scale=1.0");
 }
 
-// URL döndürme
 function getAppUrl() {
   return ScriptApp.getService().getUrl();
 }
 
-// Erişim kontrolü
 function checkAccess() {
   const userEmail = Session.getActiveUser().getEmail();
   const allowedUsers = [
@@ -26,41 +23,55 @@ function checkAccess() {
   return allowedUsers.includes(userEmail);
 }
 
-// Girdi temizleme (XSS önlemi)
 function sanitizeInput(input) {
   return String(input).replace(/[<>{}]/g, "");
 }
 
-function getFaturaList(type) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(
-    type === "fatura" ? "Fatura_liste" : "Proforma_liste"
-  );
-  if (!sheet || sheet.getLastRow() < 2) return [];
-
-  const data = sheet.getRange("B2:H" + sheet.getLastRow()).getValues();
-  return data.map((row) => ({
-    faturaNo: row[0],
-    musteri: row[2],
-    tarih: row[3],
-    pdfUrl: row[6],
-  }));
-}
-
-function getFaturaByIndex(index, type) {
-  return getFaturaList(type)[index];
-}
-
-// HTML dosyalarını dahil etme
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+function getOrCreateYearFolder(baseFolderId, year) {
+  const baseFolder = DriveApp.getFolderById(baseFolderId);
+  const yearFolders = baseFolder.getFoldersByName(year);
+  return yearFolders.hasNext()
+    ? yearFolders.next()
+    : baseFolder.createFolder(year);
 }
 
 function getNextFaturaNo() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Fatura_liste");
-  const data = sheet.getRange("B:B").getValues().flat().filter(String);
-  return String(data.length > 0 ? parseInt(data[data.length - 1]) + 1 : 1001);
+  const currentYear = new Date().getFullYear().toString();
+  const data = sheet
+    .getRange("B2:B" + sheet.getLastRow())
+    .getValues()
+    .flat()
+    .filter(String);
+  const lastNo = data.length > 0 ? data[data.length - 1] : `${currentYear}0000`;
+  const lastYear = lastNo.slice(0, 4);
+  const lastSeq = parseInt(lastNo.slice(4)) || 0;
+  const newSeq = lastYear === currentYear ? lastSeq + 1 : 1;
+  return `${currentYear}${String(newSeq).padStart(4, "0")}`;
+}
+
+function getNextProformaNo() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Proforma_liste");
+  const currentYear = new Date().getFullYear().toString();
+  const data = sheet
+    .getRange("B2:B" + sheet.getLastRow())
+    .getValues()
+    .flat()
+    .filter(String);
+  const lastNo =
+    data.length > 0
+      ? data[data.length - 1].replace("P", "")
+      : `${currentYear}0000`;
+  const lastYear = lastNo.slice(0, 4);
+  const lastSeq = parseInt(lastNo.slice(4)) || 0;
+  const newSeq = lastYear === currentYear ? lastSeq + 1 : 1;
+  return `P${currentYear}${String(newSeq).padStart(4, "0")}`;
 }
 
 function getMusteriList() {
@@ -78,7 +89,7 @@ function getMusteriInfo(name) {
   const sheet = ss.getSheetByName("Müşteri_bilgi");
   const data = sheet.getRange("B6:G" + sheet.getLastRow()).getValues();
   const row = data.find((r) => r[0] === name);
-  return row ? row[5] : ""; // G sütunu (Çarpan)
+  return row ? row[5] : "";
 }
 
 function getUrunList() {
@@ -113,20 +124,18 @@ function saveFatura(fatura) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Faturalar");
   const listeSheet = ss.getSheetByName("Fatura_liste");
-
-  // Stok kontrolü
   const stokSheet = ss.getSheetByName("Stok");
   const stokData = stokSheet
     .getRange("A2:B" + stokSheet.getLastRow())
     .getValues();
   const stokMap = new Map(stokData);
+
   for (const u of fatura.urunler) {
     const mevcut = parseInt(stokMap.get(u.ad) || 0);
     if (mevcut < parseInt(u.adet))
       throw new Error(`${u.ad} için yetersiz stok!`);
   }
 
-  // Faturalar sayfasını güncelle
   sheet.getRange("G18").setValue(fatura.no);
   sheet.getRange("G20").setValue(fatura.tarih);
   sheet.getRange("F25").setValue(getMusteriInfo(fatura.musteri));
@@ -139,21 +148,22 @@ function saveFatura(fatura) {
     sheet.getRange(`G${row}`).setValue(u.adet * u.fiyat);
   });
 
-  // PDF oluştur
+  const year = new Date().getFullYear().toString();
+  const folder = getOrCreateYearFolder(
+    "1sW_DnDrs3HgeK3e7DUCQ2vIcix7VpfoY",
+    year
+  );
   const pdfBlob = sheet.getParent().getAs("application/pdf");
-  const folder = DriveApp.getFolderById("YOUR_FOLDER_ID"); // Drive klasör ID'sini ekle
   const file = folder.createFile(
     pdfBlob.setName(`Fatura_${fatura.musteri}_${fatura.tarih}_${fatura.no}.pdf`)
   );
 
-  // Stok güncelle
   fatura.urunler.forEach((u) => {
     const row = stokData.findIndex((r) => r[0] === u.ad) + 2;
     const yeniStok = parseInt(stokMap.get(u.ad)) - parseInt(u.adet);
     stokSheet.getRange(`B${row}`).setValue(yeniStok);
   });
 
-  // Fatura_liste güncelle
   const lastRow = listeSheet.getLastRow() + 1;
   listeSheet
     .getRange(`B${lastRow}:H${lastRow}`)
@@ -170,4 +180,71 @@ function saveFatura(fatura) {
     ]);
 
   return file.getUrl();
+}
+
+function saveProforma(proforma) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Proforma");
+  const listeSheet = ss.getSheetByName("Proforma_liste");
+
+  sheet.getRange("G18").setValue(proforma.no);
+  sheet.getRange("G20").setValue(proforma.tarih);
+  sheet.getRange("F25").setValue(getMusteriInfo(proforma.musteri));
+  proforma.urunler.forEach((u, i) => {
+    const row = 33 + i;
+    sheet.getRange(`C${row}`).setValue(`PLAFORM BOARD PLASTIC ${u.ad}`);
+    sheet.getRange(`D${row}`).setValue(u.adet);
+    sheet.getRange(`E${row}`).setValue(u.fiyat);
+    sheet.getRange(`F${row}`).setValue(`${u.adet * u.carpan} M²`);
+    sheet.getRange(`G${row}`).setValue(u.adet * u.fiyat);
+  });
+
+  const year = new Date().getFullYear().toString();
+  const folder = getOrCreateYearFolder(
+    "1sW_DnDrs3HgeK3e7DUCQ2vIcix7VpfoY",
+    year
+  );
+  const pdfBlob = sheet.getParent().getAs("application/pdf");
+  const file = folder.createFile(
+    pdfBlob.setName(
+      `Proforma_${proforma.musteri}_${proforma.tarih}_${proforma.no}.pdf`
+    )
+  );
+
+  const lastRow = listeSheet.getLastRow() + 1;
+  listeSheet
+    .getRange(`B${lastRow}:H${lastRow}`)
+    .setValues([
+      [
+        proforma.no,
+        "BURYAK SARL",
+        proforma.musteri,
+        proforma.tarih,
+        "Plaform",
+        sheet.getRange("G50").getValue(),
+        file.getUrl(),
+      ],
+    ]);
+
+  return file.getUrl();
+}
+
+function getFaturaList(type) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(
+    type === "fatura" ? "Fatura_liste" : "Proforma_liste"
+  );
+  if (!sheet || sheet.getLastRow() < 2) return [];
+
+  const data = sheet.getRange("B2:H" + sheet.getLastRow()).getValues();
+  return data.map((row) => ({
+    faturaNo: row[0],
+    musteri: row[2],
+    tarih: row[3],
+    pdfUrl: row[6],
+  }));
+}
+
+function getFaturaByIndex(index, type) {
+  return getFaturaList(type)[index];
 }

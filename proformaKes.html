@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <base target="_top" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <?!= include('styles'); ?>
+    <style>
+      .urun-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      .urun-row input,
+      .urun-row button {
+        flex: 1;
+        min-width: 100px;
+      }
+      .search-results {
+        position: absolute;
+        background: white;
+        border: 1px solid #ccc;
+        max-height: 150px;
+        overflow-y: auto;
+        z-index: 10;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Proforma Kes</h2>
+      <form id="proformaForm">
+        <input type="text" id="faturaNo" placeholder="Proforma No" readonly />
+        <input type="date" id="tarih" />
+        <input
+          type="text"
+          id="musteri"
+          placeholder="Müşteri Adı"
+          oninput="searchMusteri()"
+        />
+        <div id="searchResults" class="search-results"></div>
+        <input
+          type="text"
+          id="musteriInfo"
+          placeholder="Müşteri Bilgisi"
+          disabled
+        />
+        <div id="urunContainer"></div>
+        <button type="button" class="btn-blue" onclick="addProduct()">
+          Ürün Ekle
+        </button>
+        <button type="button" class="btn-red" onclick="saveProforma()">
+          Kaydet
+        </button>
+      </form>
+    </div>
+    <script>
+      google.script.run
+        .withSuccessHandler((isAllowed) => {
+          if (!isAllowed)
+            document.body.innerHTML =
+              "<h2 style='color: red; text-align: center;'>Erişim izniniz yok!</h2>";
+          else initialize();
+        })
+        .checkAccess();
+
+      function initialize() {
+        google.script.run
+          .withSuccessHandler((no) => {
+            document.getElementById("faturaNo").value = no;
+          })
+          .getNextProformaNo();
+      }
+
+      function searchMusteri() {
+        const query = document.getElementById("musteri").value;
+        if (query) {
+          google.script.run
+            .withSuccessHandler((list) => {
+              const results = document.getElementById("searchResults");
+              results.innerHTML = "";
+              list
+                .filter((m) => m.toLowerCase().includes(query.toLowerCase()))
+                .forEach((m) => {
+                  const div = document.createElement("div");
+                  div.textContent = m;
+                  div.onclick = () => selectMusteri(m);
+                  results.appendChild(div);
+                });
+              results.style.display = "block";
+            })
+            .getMusteriList();
+        }
+      }
+
+      function selectMusteri(name) {
+        document.getElementById("musteri").value = name;
+        document.getElementById("searchResults").style.display = "none";
+        google.script.run
+          .withSuccessHandler((info) => {
+            document.getElementById("musteriInfo").value = info;
+          })
+          .getMusteriInfo(name);
+      }
+
+      function addProduct() {
+        const container = document.getElementById("urunContainer");
+        const index = container.children.length;
+        const div = document.createElement("div");
+        div.className = "urun-row";
+        div.innerHTML = `
+          <input type="text" class="urun" placeholder="Ürün Adı" data-index="${index}" oninput="searchUrun(this, ${index})">
+          <div class="search-results" data-index="${index}"></div>
+          <input type="number" class="adet" placeholder="Adet">
+          <input type="number" class="fiyat" placeholder="Fiyat">
+          <input type="text" class="carpan" placeholder="Çarpan" disabled>
+          <button type="button" class="btn-red" onclick="this.parentElement.remove()">Sil</button>
+        `;
+        container.appendChild(div);
+      }
+
+      function searchUrun(input, index) {
+        const query = input.value;
+        if (query) {
+          google.script.run
+            .withSuccessHandler((list) => {
+              const results = document.querySelector(
+                `.search-results[data-index="${index}"]`
+              );
+              results.innerHTML = "";
+              list
+                .filter((u) => u.toLowerCase().includes(query.toLowerCase()))
+                .forEach((u) => {
+                  const div = document.createElement("div");
+                  div.textContent = u;
+                  div.onclick = () => selectUrun(u, index);
+                  results.appendChild(div);
+                });
+              results.style.display = "block";
+            })
+            .getUrunList();
+        }
+      }
+
+      function selectUrun(name, index) {
+        const row = document.querySelector(
+          `.urun[data-index="${index}"]`
+        ).parentElement;
+        row.querySelector(".urun").value = name;
+        row.querySelector(".search-results").style.display = "none";
+        google.script.run
+          .withSuccessHandler((info) => {
+            row.querySelector(".carpan").value = info.carpan;
+          })
+          .getUrunInfo(name);
+      }
+
+      function saveProforma() {
+        const proforma = {
+          no: document.getElementById("faturaNo").value,
+          tarih: document.getElementById("tarih").value,
+          musteri: document.getElementById("musteri").value,
+          urunler: Array.from(document.querySelectorAll(".urun-row")).map(
+            (row) => ({
+              ad: row.querySelector(".urun").value,
+              adet: row.querySelector(".adet").value,
+              fiyat: row.querySelector(".fiyat").value,
+              carpan: row.querySelector(".carpan").value,
+            })
+          ),
+        };
+        google.script.run
+          .withSuccessHandler((url) => {
+            window.open(url, "_blank");
+            Swal.fire("Başarılı!", "Proforma kaydedildi.", "success");
+            document.getElementById("proformaForm").reset();
+            initialize();
+          })
+          .withFailureHandler((error) =>
+            Swal.fire("Hata!", error.message, "error")
+          )
+          .saveProforma(proforma);
+      }
+    </script>
+  </body>
+</html>
