@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <base target="_top" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <?!= include('styles'); ?>
+    <style>
+      .form-container {
+        margin-bottom: 20px;
+      }
+      .form-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .form-row input,
+      .form-row button {
+        flex: 1;
+        min-width: 150px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        text-align: left;
+      }
+      #searchResults {
+        max-width: 780px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Stok Takip</h2>
+      <div class="form-container">
+        <div class="form-row">
+          <input
+            type="text"
+            id="urunAdi"
+            placeholder="Ürün Adı"
+            oninput="searchUrun()"
+          />
+          <div id="searchResults" class="search-results"></div>
+          <input type="number" id="miktar" placeholder="Miktar" />
+          <button class="btn-blue" onclick="addStok()">Ekle</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Ürün Adı</th>
+            <th>Miktar</th>
+          </tr>
+        </thead>
+        <tbody id="stokTableBody"></tbody>
+      </table>
+    </div>
+    <script>
+      google.script.run
+        .withSuccessHandler((isAllowed) => {
+          if (!isAllowed)
+            document.body.innerHTML =
+              "<h2 style='color: red; text-align: center;'>Erişim izniniz yok!</h2>";
+          else loadStok();
+        })
+        .checkAccess();
+
+      function loadStok() {
+        google.script.run
+          .withSuccessHandler((data) => {
+            const tbody = document.getElementById("stokTableBody");
+            tbody.innerHTML = "";
+            if (data.length === 0) {
+              tbody.innerHTML =
+                "<tr><td colspan='2'>Stok bulunamadı.</td></tr>";
+              return;
+            }
+            data.forEach((item) => {
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                <td>${item.urunAdi}</td>
+                <td>${item.miktar}</td>
+              `;
+              tbody.appendChild(row);
+            });
+          })
+          .withFailureHandler((error) =>
+            Swal.fire("Hata!", error.message, "error")
+          )
+          .getStokList();
+      }
+
+      function searchUrun() {
+        const query = document.getElementById("urunAdi").value;
+        if (query) {
+          google.script.run
+            .withSuccessHandler((list) => {
+              const results = document.getElementById("searchResults");
+              results.innerHTML = "";
+              list
+                .filter((u) => u.toLowerCase().includes(query.toLowerCase()))
+                .forEach((u) => {
+                  const div = document.createElement("div");
+                  div.textContent = u;
+                  div.onclick = () => selectUrun(u);
+                  results.appendChild(div);
+                });
+              results.style.display = "block";
+            })
+            .getUrunList();
+        }
+      }
+
+      function selectUrun(name) {
+        document.getElementById("urunAdi").value = name;
+        document.getElementById("searchResults").style.display = "none";
+      }
+
+      function addStok() {
+        const urunAdi = document.getElementById("urunAdi").value;
+        const miktar = document.getElementById("miktar").value;
+        if (!urunAdi || !miktar || miktar <= 0) {
+          Swal.fire(
+            "Hata!",
+            "Ürün adı ve geçerli bir miktar giriniz.",
+            "error"
+          );
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(() => {
+            Swal.fire("Başarılı!", `${urunAdi} stoklara eklendi.`, "success");
+            document.getElementById("urunAdi").value = "";
+            document.getElementById("miktar").value = "";
+            loadStok();
+          })
+          .withFailureHandler((error) =>
+            Swal.fire("Hata!", error.message, "error")
+          )
+          .addToStok(urunAdi, parseInt(miktar));
+      }
+    </script>
+  </body>
+</html>

@@ -127,9 +127,9 @@ function getMusteriList() {
 function getMusteriInfo(name) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Müşteri_bilgi");
-  const data = sheet.getRange("B6:G" + sheet.getLastRow()).getValues();
+  const data = sheet.getRange("B6:I" + sheet.getLastRow()).getValues();
   const row = data.find((r) => r[0] === name);
-  return row ? row[5] : "";
+  return row ? row[5] : ""; // G sütunu (formül) dönüyor
 }
 
 function getUrunList() {
@@ -232,7 +232,7 @@ function saveFatura(fatura) {
   );
   const pdfUrl = createPDF(
     "Faturalar",
-    `Fatura_${fatura.musteri}_${fatura.tarih}_${fatura.no}.pdf`,
+    `${fatura.no}_${fatura.musteri}_${fatura.tarih}.pdf`,
     folder,
     fatura.tarih,
     fatura.no
@@ -291,12 +291,12 @@ function saveProforma(proforma) {
   // PDF oluştur
   const year = new Date().getFullYear().toString();
   const folder = getOrCreateYearFolder(
-    "1sW_DnDrs3HgeK3e7DUCQ2vIcix7VpfoY",
+    "1sMvWeG6mWDbaV21zAXvgSQh7A6SnOSOL",
     year
   );
   const pdfUrl = createPDF(
     "Proforma",
-    `Proforma_${proforma.musteri}_${proforma.tarih}_${proforma.no}.pdf`,
+    `${proforma.no}_${proforma.musteri}_${proforma.tarih}.pdf`,
     folder,
     proforma.tarih,
     proforma.no
@@ -342,4 +342,92 @@ function getFaturaList(type) {
 
 function getFaturaByIndex(index, type) {
   return getFaturaList(type)[index];
+}
+
+function getStokList() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Stok");
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  const data = sheet.getRange("A2:B" + lastRow).getValues();
+  return data.map((row) => ({
+    urunAdi: row[0],
+    miktar: row[1],
+  }));
+}
+
+function addToStok(urunAdi, miktar) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Stok");
+  const data = sheet.getRange("A2:B" + sheet.getLastRow()).getValues();
+  const stokMap = new Map(data);
+
+  if (stokMap.has(urunAdi)) {
+    // Ürün varsa miktarı güncelle
+    const mevcutMiktar = parseInt(stokMap.get(urunAdi));
+    const yeniMiktar = mevcutMiktar + miktar;
+    const row = data.findIndex((r) => r[0] === urunAdi) + 2;
+    sheet.getRange(`B${row}`).setValue(yeniMiktar);
+  } else {
+    // Yeni ürün ekle
+    const lastRow = sheet.getLastRow() + 1;
+    sheet.getRange(`A${lastRow}:B${lastRow}`).setValues([[urunAdi, miktar]]);
+  }
+}
+
+function getMusteriListFull() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Müşteri_bilgi");
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 6) return [];
+
+  const data = sheet.getRange("B6:I" + lastRow).getValues();
+  return data.map((row) => ({
+    firma: row[0],
+    adres: row[1],
+    iceKodu: row[2],
+    telefon: row[3],
+    email: row[4],
+    referans: row[6],
+    notlar: row[7],
+  }));
+}
+
+function getMusteriByIndex(index) {
+  const musteriList = getMusteriListFull();
+  return musteriList[index];
+}
+
+function saveMusteri(musteri) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Müşteri_bilgi");
+  const lastRow = sheet.getLastRow();
+  let row;
+
+  if (musteri.index !== null) {
+    // Düzenleme
+    row = 6 + musteri.index;
+  } else {
+    // Yeni ekleme
+    row = lastRow + 1;
+  }
+
+  // Verileri yaz (B:I sırası)
+  sheet.getRange(`B${row}:I${row}`).setValues([
+    [
+      musteri.firma,
+      musteri.adres,
+      musteri.iceKodu,
+      musteri.telefon,
+      musteri.email,
+      "",
+      musteri.referans,
+      musteri.notlar, // G sütunu boş bırakılır
+    ],
+  ]);
+
+  // G sütununa formül ekle
+  const formula = `="${musteri.firma}" & CHAR(10) & "${musteri.adres}" & CHAR(10) & "ICE: ${musteri.iceKodu}"`;
+  sheet.getRange(`G${row}`).setFormula(formula);
 }

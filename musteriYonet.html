@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <base target="_top" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <?!= include('styles'); ?>
+    <style>
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      .search-bar {
+        flex-grow: 1;
+        margin-right: 10px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        text-align: left;
+        word-wrap: break-word;
+      }
+      .action-btn {
+        padding: 5px 10px;
+        font-size: 0.9rem;
+      }
+      .container {
+        max-width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Müşteri Yönetimi</h2>
+      <div class="header">
+        <input
+          type="text"
+          class="search-bar"
+          id="searchInput"
+          placeholder="Firma, ICE Kodu veya Referans ile ara..."
+          oninput="filterMusteriler()"
+        />
+        <button class="btn-blue" onclick="addMusteriPopup()">
+          Müşteri Ekle
+        </button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Firma</th>
+            <th>Adres</th>
+            <th>ICE Kodu</th>
+            <th>Telefon</th>
+            <th>Email</th>
+            <th>Referans</th>
+            <th>Notlar</th>
+            <th>İşlemler</th>
+          </tr>
+        </thead>
+        <tbody id="musteriTableBody"></tbody>
+      </table>
+    </div>
+    <script>
+      let musteriData = [];
+
+      google.script.run
+        .withSuccessHandler((isAllowed) => {
+          if (!isAllowed)
+            document.body.innerHTML =
+              "<h2 style='color: red; text-align: center;'>Erişim izniniz yok!</h2>";
+          else loadMusteriler();
+        })
+        .checkAccess();
+
+      function loadMusteriler() {
+        google.script.run
+          .withSuccessHandler((data) => {
+            musteriData = data.map((item, index) => ({
+              ...item,
+              originalIndex: index,
+            }));
+            renderMusteriler(musteriData);
+          })
+          .withFailureHandler((error) =>
+            Swal.fire("Hata!", error.message, "error")
+          )
+          .getMusteriListFull();
+      }
+
+      function renderMusteriler(data) {
+        const tbody = document.getElementById("musteriTableBody");
+        tbody.innerHTML = "";
+        if (data.length === 0) {
+          tbody.innerHTML = "<tr><td colspan='8'>Müşteri bulunamadı.</td></tr>";
+          return;
+        }
+        data.forEach((item) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${item.firma}</td>
+            <td>${item.adres}</td>
+            <td>${item.iceKodu}</td>
+            <td>${item.telefon}</td>
+            <td>${item.email}</td>
+            <td>${item.referans}</td>
+            <td>${item.notlar}</td>
+            <td>
+              <button class="btn-blue action-btn" onclick="editMusteriPopup(${item.originalIndex})">Düzenle</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      }
+
+      function filterMusteriler() {
+        const query = document
+          .getElementById("searchInput")
+          .value.toLowerCase();
+        const filteredData = musteriData.filter(
+          (item) =>
+            item.firma.toLowerCase().includes(query) ||
+            item.iceKodu.toLowerCase().includes(query) ||
+            item.referans.toLowerCase().includes(query)
+        );
+        renderMusteriler(filteredData);
+      }
+
+      function addMusteriPopup() {
+        Swal.fire({
+          title: "Yeni Müşteri Ekle",
+          html: `
+            <input id="swal-firma" class="swal2-input" placeholder="Firma Adı">
+            <input id="swal-adres" class="swal2-input" placeholder="Adres">
+            <input id="swal-iceKodu" class="swal2-input" placeholder="ICE Kodu">
+            <input id="swal-telefon" class="swal2-input" placeholder="Telefon">
+            <input id="swal-email" class="swal2-input" type="email" placeholder="Email">
+            <input id="swal-referans" class="swal2-input" placeholder="Referans">
+            <input id="swal-notlar" class="swal2-input" placeholder="Notlar">
+          `,
+          showCancelButton: true,
+          confirmButtonText: "Kaydet",
+          cancelButtonText: "İptal",
+          preConfirm: () => {
+            const musteri = {
+              firma: document.getElementById("swal-firma").value,
+              adres: document.getElementById("swal-adres").value,
+              iceKodu: document.getElementById("swal-iceKodu").value,
+              telefon: document.getElementById("swal-telefon").value,
+              email: document.getElementById("swal-email").value,
+              referans: document.getElementById("swal-referans").value,
+              notlar: document.getElementById("swal-notlar").value,
+              index: null,
+            };
+            if (!musteri.firma) {
+              Swal.showValidationMessage("Firma adı zorunlu!");
+              return false;
+            }
+            return musteri;
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            google.script.run
+              .withSuccessHandler(() => {
+                Swal.fire(
+                  "Başarılı!",
+                  `${result.value.firma} eklendi.`,
+                  "success"
+                );
+                loadMusteriler();
+              })
+              .withFailureHandler((error) =>
+                Swal.fire("Hata!", error.message, "error")
+              )
+              .saveMusteri(result.value);
+          }
+        });
+      }
+
+      function editMusteriPopup(index) {
+        google.script.run
+          .withSuccessHandler((data) => {
+            Swal.fire({
+              title: "Müşteri Düzenle",
+              html: `
+                <input id="swal-firma" class="swal2-input" placeholder="Firma Adı" value="${data.firma}">
+                <input id="swal-adres" class="swal2-input" placeholder="Adres" value="${data.adres}">
+                <input id="swal-iceKodu" class="swal2-input" placeholder="ICE Kodu" value="${data.iceKodu}">
+                <input id="swal-telefon" class="swal2-input" placeholder="Telefon" value="${data.telefon}">
+                <input id="swal-email" class="swal2-input" type="email" placeholder="Email" value="${data.email}">
+                <input id="swal-referans" class="swal2-input" placeholder="Referans" value="${data.referans}">
+                <input id="swal-notlar" class="swal2-input" placeholder="Notlar" value="${data.notlar}">
+              `,
+              showCancelButton: true,
+              confirmButtonText: "Kaydet",
+              cancelButtonText: "İptal",
+              preConfirm: () => {
+                const musteri = {
+                  firma: document.getElementById("swal-firma").value,
+                  adres: document.getElementById("swal-adres").value,
+                  iceKodu: document.getElementById("swal-iceKodu").value,
+                  telefon: document.getElementById("swal-telefon").value,
+                  email: document.getElementById("swal-email").value,
+                  referans: document.getElementById("swal-referans").value,
+                  notlar: document.getElementById("swal-notlar").value,
+                  index: index,
+                };
+                if (!musteri.firma) {
+                  Swal.showValidationMessage("Firma adı zorunlu!");
+                  return false;
+                }
+                return musteri;
+              },
+            }).then((result) => {
+              if (result.isConfirmed) {
+                google.script.run
+                  .withSuccessHandler(() => {
+                    Swal.fire(
+                      "Başarılı!",
+                      `${result.value.firma} güncellendi.`,
+                      "success"
+                    );
+                    loadMusteriler();
+                  })
+                  .withFailureHandler((error) =>
+                    Swal.fire("Hata!", error.message, "error")
+                  )
+                  .saveMusteri(result.value);
+              }
+            });
+          })
+          .getMusteriByIndex(index);
+      }
+    </script>
+  </body>
+</html>
