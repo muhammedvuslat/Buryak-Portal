@@ -2,94 +2,40 @@
 <html>
   <head>
     <base target="_top" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <?!= include('styles'); ?>
     <style>
-      body {
-        margin: 0;
-        padding: 20px;
-        min-height: 100vh;
-        background: linear-gradient(135deg, #394755 0%, #2570bb 100%);
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-      .container {
-        width: 90%;
-        max-width: 900px;
-        padding: 20px;
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 15px;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-      }
-      h1 {
-        color: #394755;
-        font-size: 2rem;
-        text-align: center;
-        margin-bottom: 20px;
-      }
-      .button-grid {
+      .card-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 15px;
       }
-      .nav-card {
+      .card {
         padding: 20px;
         border-radius: 10px;
-        background: #fff;
-        color: #394755;
-        font-size: 1.1rem;
-        font-weight: 600;
         text-align: center;
+        color: white;
         text-decoration: none;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-      }
-      .nav-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-      }
-      .fatura {
-        background: #0f6b12;
-        color: white;
-      }
-      .stok {
-        background: #2570bb;
-        color: white;
-      }
-      .proforma {
-        background: #e4292b;
-        color: white;
-      }
-      .goruntule {
-        background: #394755;
-        color: white;
-      }
-      .musteri {
-        background: #2570bb;
-        color: white;
+        font-weight: bold;
       }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>Fatura & Stok Yönetimi</h1>
-      <div class="button-grid">
-        <a href="<?= myURL(); ?>?page=faturaKes" class="nav-card fatura"
+      <h2>Fatura & Stok Yönetimi</h2>
+      <div class="card-grid">
+        <a href="<?= getAppUrl(); ?>?page=faturaKes" class="card btn-green"
           >📄 Fatura Kes</a
         >
-        <a href="<?= myURL(); ?>?page=stokTakip" class="nav-card stok"
-          >📦 Stok Takip</a
-        >
-        <a href="<?= myURL(); ?>?page=proformaKes" class="nav-card proforma"
+        <a href="<?= getAppUrl(); ?>?page=proformaKes" class="card btn-red"
           >📑 Proforma Kes</a
         >
-        <a
-          href="<?= myURL(); ?>?page=faturaGoruntule"
-          class="nav-card goruntule"
+        <a href="<?= getAppUrl(); ?>?page=stokTakip" class="card btn-blue"
+          >📦 Stok Takip</a
+        >
+        <a href="<?= getAppUrl(); ?>?page=faturaGoruntule" class="card btn-gray"
           >🔍 Faturaları Görüntüle</a
         >
-        <a href="<?= myURL(); ?>?page=musteriYonet" class="nav-card musteri"
+        <a href="<?= getAppUrl(); ?>?page=musteriYonet" class="card btn-blue"
           >👥 Müşteri Yönet</a
         >
       </div>

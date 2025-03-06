@@ -2,39 +2,13 @@
 <html lang="tr">
   <head>
     <base target="_top" />
-    <meta charset="UTF-8" />
-    <title>Fatura Görüntüleme</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <?!= include('styles'); ?>
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        background: linear-gradient(135deg, #394755 0%, #2570bb 100%);
-        padding: 20px;
-      }
-      .container {
-        background: white;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        max-width: 800px;
-        margin: auto;
-      }
       .button-group {
         display: flex;
         gap: 10px;
         margin-bottom: 20px;
-      }
-      button {
-        padding: 10px;
-        border-radius: 5px;
-        border: none;
-        color: white;
-        cursor: pointer;
-      }
-      .proforma-btn {
-        background: #e4292b;
-      }
-      .fatura-btn {
-        background: #0f6b12;
       }
       table {
         width: 100%;
@@ -46,83 +20,16 @@
         border-bottom: 1px solid #ddd;
         text-align: left;
       }
-      .action-btn {
-        background: #2570bb;
-        margin-right: 5px;
-      }
     </style>
-    <script>
-      function viewFaturalar(type) {
-        console.log("viewFaturalar called with type:", type);
-        google.script.run
-          .withSuccessHandler(function (data) {
-            console.log("Data received:", data);
-            var tbody = document.getElementById("faturaTableBody");
-            tbody.innerHTML = "";
-            if (data && Array.isArray(data) && data.length > 0) {
-              data.forEach(function (item, index) {
-                var row = document.createElement("tr");
-                row.innerHTML = `
-            <td>${item.faturaNo || "Bilinmiyor"}</td>
-            <td>${item.musteri || "Bilinmiyor"}</td>
-            <td>${item.tarih || "Bilinmiyor"}</td>
-            <td>
-              <button class="action-btn" onclick="viewPDF('${
-                item.pdfUrl || ""
-              }')">🔍 Görüntüle</button>
-              <button class="action-btn" onclick="editFatura(${index}, '${type}')">✏️ Düzenle</button>
-            </td>
-          `;
-                tbody.appendChild(row);
-              });
-            } else {
-              tbody.innerHTML =
-                "<tr><td colspan='4'>Veri bulunamadı veya hata oluştu.</td></tr>";
-            }
-          })
-          .withFailureHandler(function (error) {
-            console.error("Error:", error);
-            alert("Bir hata oluştu: " + error.message);
-          })
-          .getFaturaList(type);
-      }
-
-      function viewPDF(url) {
-        if (url) {
-          window.open(url, "_blank");
-        } else {
-          alert("PDF URL bulunamadı.");
-        }
-      }
-
-      function editFatura(index, type) {
-        console.log("Editing index:", index, "type:", type);
-        google.script.run
-          .withSuccessHandler(function (data) {
-            window.location.href = `${myURL()}?page=${
-              type === "fatura" ? "faturaKes" : "proformaKes"
-            }&edit=${index}`;
-          })
-          .withFailureHandler(function (error) {
-            console.error("Edit error:", error);
-            alert("Düzenleme hatası: " + error.message);
-          })
-          .getFaturaByIndex(index, type);
-      }
-
-      function myURL() {
-        return google.script.run.withSuccessHandler((url) => url).myURL();
-      }
-    </script>
   </head>
   <body>
     <div class="container">
       <h2>Faturaları Görüntüle</h2>
       <div class="button-group">
-        <button class="fatura-btn" onclick="viewFaturalar('fatura')">
+        <button class="btn-green" onclick="viewFaturalar('fatura')">
           Fatura Görüntüle
         </button>
-        <button class="proforma-btn" onclick="viewFaturalar('proforma')">
+        <button class="btn-red" onclick="viewFaturalar('proforma')">
           Proforma Görüntüle
         </button>
       </div>
@@ -138,5 +45,51 @@
         <tbody id="faturaTableBody"></tbody>
       </table>
     </div>
+    <script>
+      function viewFaturalar(type) {
+        google.script.run
+          .withSuccessHandler((data) => {
+            const tbody = document.getElementById("faturaTableBody");
+            tbody.innerHTML = "";
+            if (data.length === 0) {
+              tbody.innerHTML =
+                "<tr><td colspan='4'>Veri bulunamadı.</td></tr>";
+              return;
+            }
+            data.forEach((item, index) => {
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                <td>${item.faturaNo}</td>
+                <td>${item.musteri}</td>
+                <td>${item.tarih}</td>
+                <td>
+                  <button class="btn-blue" onclick="viewPDF('${item.pdfUrl}')">🔍</button>
+                  <button class="btn-blue" onclick="editFatura(${index}, '${type}')">✏️</button>
+                </td>
+              `;
+              tbody.appendChild(row);
+            });
+          })
+          .withFailureHandler((error) => {
+            Swal.fire("Hata!", error.message, "error");
+          })
+          .getFaturaList(type);
+      }
+
+      function viewPDF(url) {
+        if (url) window.open(url, "_blank");
+        else Swal.fire("Hata!", "PDF URL bulunamadı.", "error");
+      }
+
+      function editFatura(index, type) {
+        google.script.run
+          .withSuccessHandler((data) => {
+            window.location.href = `${getAppUrl()}?page=${
+              type === "fatura" ? "faturaKes" : "proformaKes"
+            }&edit=${index}`;
+          })
+          .getFaturaByIndex(index, type);
+      }
+    </script>
   </body>
 </html>
