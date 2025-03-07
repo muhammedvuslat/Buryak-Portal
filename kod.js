@@ -114,6 +114,7 @@ function getNextProformaNo() {
   Logger.log("Generated proformaNo: " + newNo);
   return newNo;
 }
+
 function getMusteriList() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Müşteri_bilgi");
@@ -366,6 +367,7 @@ function getFaturaByIndex(index, type) {
   );
   return list[index];
 }
+
 function getStokList() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Stok");
@@ -452,4 +454,49 @@ function saveMusteri(musteri) {
   // G sütununa formül ekle
   const formula = `="${musteri.firma}" & CHAR(10) & "${musteri.adres}" & CHAR(10) & "ICE: ${musteri.iceKodu}"`;
   sheet.getRange(`G${row}`).setFormula(formula);
+}
+
+function saveNewProduct(product) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Ürün_liste");
+  if (!sheet) throw new Error("Ürün_liste sheet’i bulunamadı!");
+
+  const lastRow = sheet.getLastRow();
+  const newRow = lastRow + 1;
+
+  // B sütunu: Ürün adı formülü =("(" & C<satır> & " X " & D<satır> & " X " & E<satır> & " )")
+  const urunAdiFormula = `=("("&C${newRow}&" X "&D${newRow}&" X "&E${newRow}&" MM)")`;
+
+  // C sütunu: Uzunluk
+  const uzunluk = product.uzunluk;
+
+  // D sütunu: Genişlik
+  const genislik = product.genislik;
+
+  // E sütunu: Kalınlık
+  const kalinlik = product.kalinlik;
+
+  // F sütunu: Alan formülü =C<satır>*D<satır>/1000000
+  const alanFormula = `=C${newRow}*D${newRow}/1000000`;
+
+  // G sütunu: Açıklama (varsayılan "PLAFORM BOARD PLASTIC")
+  const aciklama = product.aciklama || "PLAFORM BOARD PLASTIC";
+
+  // H sütunu: Formül =G<satır>&CHAR(10)&B<satır>
+  const hFormula = `=G${newRow}&CHAR(10)&B${newRow}`;
+
+  // Yeni satırı ekle
+  sheet.getRange(`B${newRow}:H${newRow}`).setValues([
+    [
+      urunAdiFormula, // B: Ürün adı formülü
+      uzunluk, // C: Uzunluk
+      genislik, // D: Genişlik
+      kalinlik, // E: Kalınlık
+      alanFormula, // F: Alan formülü
+      aciklama, // G: Açıklama
+      hFormula, // H: G + CHAR(10) + B
+    ],
+  ]);
+
+  Logger.log(`New product added at row ${newRow}: ${JSON.stringify(product)}`);
 }

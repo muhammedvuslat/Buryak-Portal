@@ -31,9 +31,22 @@
       #searchResults {
         max-width: 780px;
       }
+      .new-product-btn {
+        padding: 8px 16px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+      .swal2-input-group {
+        margin-bottom: 10px;
+      }
     </style>
   </head>
   <body>
+    <a href="<?= getAppUrl(); ?>?page=main" class="home-button">🏠 Ana Sayfa</a>
     <div class="container">
       <h2>Stok Takip</h2>
       <div class="form-container">
@@ -49,6 +62,9 @@
           <button class="btn-blue" onclick="addStok()">Ekle</button>
         </div>
       </div>
+      <button class="new-product-btn" onclick="openNewProductPopup()">
+        Yeni Ürün Tanımla
+      </button>
       <table>
         <thead>
           <tr>
@@ -143,6 +159,108 @@
           )
           .addToStok(urunAdi, parseInt(miktar));
       }
+
+      function openNewProductPopup() {
+        Swal.fire({
+          title: "Yeni Ürün Tanımla",
+          html: `
+            <div class="swal2-input-group">
+              <input id="swal-uzunluk" class="swal2-input" type="number" placeholder="Uzunluk (mm)">
+              <input id="swal-genislik" class="swal2-input" type="number" placeholder="Genişlik (mm)">
+              <input id="swal-kalinlik" class="swal2-input" type="number" placeholder="Kalınlık (mm)">
+              <input id="swal-alan" class="swal2-input" placeholder="Alan (m²)" readonly>
+              <input id="swal-aciklama" class="swal2-input" value="PLAFORM BOARD PLASTIC" placeholder="Açıklama">
+            </div>`,
+          showCancelButton: true,
+          confirmButtonText: "Kaydet",
+          cancelButtonText: "İptal",
+          didOpen: () => {
+            document
+              .getElementById("swal-uzunluk")
+              .addEventListener("input", calculateAlan);
+            document
+              .getElementById("swal-genislik")
+              .addEventListener("input", calculateAlan);
+          },
+          preConfirm: () => {
+            const uzunluk =
+              parseFloat(document.getElementById("swal-uzunluk").value) || 0;
+            const genislik =
+              parseFloat(document.getElementById("swal-genislik").value) || 0;
+            const kalinlik =
+              parseFloat(document.getElementById("swal-kalinlik").value) || 0;
+            const aciklama =
+              document.getElementById("swal-aciklama").value ||
+              "PLAFORM BOARD PLASTIC";
+            const alan = (uzunluk * genislik) / 1000000;
+
+            if (!uzunluk || !genislik || !kalinlik) {
+              Swal.showValidationMessage("Lütfen tüm boyutları girin!");
+              return false;
+            }
+
+            return { uzunluk, genislik, kalinlik, aciklama, alan };
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            const newProduct = result.value;
+            google.script.run
+              .withSuccessHandler(() => {
+                Swal.fire("Başarılı!", "Yeni ürün eklendi.", "success");
+                loadStok(); // Listeyi yenile (Stok sayfasında değil, sadece bilgi)
+              })
+              .withFailureHandler((error) => {
+                console.error("Failed to save product:", error);
+                Swal.fire("Hata!", error.message, "error");
+              })
+              .saveNewProduct(newProduct);
+          }
+        });
+      }
+
+      function calculateAlan() {
+        const uzunluk =
+          parseFloat(document.getElementById("swal-uzunluk").value) || 0;
+        const genislik =
+          parseFloat(document.getElementById("swal-genislik").value) || 0;
+        const alan = (uzunluk * genislik) / 1000000;
+        document.getElementById("swal-alan").value = alan.toFixed(4);
+      }
+    </script>
+    <script>
+      (function () {
+        function c() {
+          var b = a.contentDocument || a.contentWindow.document;
+          if (b) {
+            var d = b.createElement("script");
+            d.innerHTML =
+              "window.__CF$cv$params={r:'91cd72b7ff53e592',t:'MTc0MTM4NTY5MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";
+            b.getElementsByTagName("head")[0].appendChild(d);
+          }
+        }
+        if (document.body) {
+          var a = document.createElement("iframe");
+          a.height = 1;
+          a.width = 1;
+          a.style.position = "absolute";
+          a.style.top = 0;
+          a.style.left = 0;
+          a.style.border = "none";
+          a.style.visibility = "hidden";
+          document.body.appendChild(a);
+          if ("loading" !== document.readyState) c();
+          else if (window.addEventListener)
+            document.addEventListener("DOMContentLoaded", c);
+          else {
+            var e = document.onreadystatechange || function () {};
+            document.onreadystatechange = function (b) {
+              e(b);
+              "loading" !== document.readyState &&
+                ((document.onreadystatechange = e), c());
+            };
+          }
+        }
+      })();
     </script>
   </body>
 </html>
