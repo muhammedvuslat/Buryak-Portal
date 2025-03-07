@@ -348,7 +348,7 @@ function getFaturaList(type) {
   Logger.log(`Raw data for ${type}: ${JSON.stringify(data)}`);
 
   const formattedData = data.map((row) => ({
-    faturaNo: row[0] ? row[0].toString() : "", // Fatura No string olarak dönüyor
+    faturaNo: row[0] ? row[0].toString() : "",
     musteri: row[2] || "",
     tarih: row[3] ? new Date(row[3]).toLocaleDateString("tr-TR") : "",
     tutar: row[5] || "",
@@ -366,7 +366,6 @@ function getFaturaByIndex(index, type) {
   );
   return list[index];
 }
-
 function getStokList() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("Stok");

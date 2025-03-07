@@ -85,7 +85,6 @@
           .withSuccessHandler((data) => {
             console.log("Received data for", type + ":", data);
             faturaData = Array.isArray(data) ? data : [];
-            // Fatura numarasına göre azalan sıralama (string karşılaştırması)
             faturaData.sort((a, b) => {
               const faturaNoA = (a.faturaNo || "").toString();
               const faturaNoB = (b.faturaNo || "").toString();
@@ -121,7 +120,6 @@
               <button class="btn-blue" onclick="viewPDF('${
                 item.pdfUrl
               }')">🔍</button>
-              <button class="btn-blue" onclick="editFatura(${index}, '${currentType}')">✏️</button>
             </td>
           `;
           tbody.appendChild(row);
@@ -150,26 +148,6 @@
       function viewPDF(url) {
         if (url) window.open(url, "_blank");
         else Swal.fire("Hata!", "PDF URL bulunamadı.", "error");
-      }
-
-      function editFatura(index, type) {
-        console.log(`Editing ${type} at index ${index}`);
-        google.script.run
-          .withSuccessHandler((data) => {
-            console.log("Edit data received:", data);
-            window.location.href = `${getAppUrl()}?page=${
-              type === "fatura" ? "faturaKes" : "proformaKes"
-            }&edit=${index}`;
-          })
-          .withFailureHandler((error) => {
-            console.error("Edit failed:", error);
-            Swal.fire("Hata!", error.message, "error");
-          })
-          .getFaturaByIndex(index, type);
-      }
-
-      function getAppUrl() {
-        return "<?!= ScriptApp.getService().getUrl(); ?>";
       }
     </script>
   </body>
