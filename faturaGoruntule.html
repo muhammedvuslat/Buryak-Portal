@@ -5,10 +5,21 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <?!= include('styles'); ?>
     <style>
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .search-bar {
+        flex-grow: 1;
+        margin-right: 10px;
+      }
       .button-group {
         display: flex;
         gap: 10px;
-        margin-bottom: 20px;
       }
       table {
         width: 100%;
@@ -20,18 +31,37 @@
         border-bottom: 1px solid #ddd;
         text-align: left;
       }
+      .sort-btn {
+        padding: 5px 10px;
+        font-size: 0.9rem;
+      }
     </style>
   </head>
   <body>
     <div class="container">
       <h2>Faturaları Görüntüle</h2>
-      <div class="button-group">
-        <button class="btn-green" onclick="viewFaturalar('fatura')">
-          Fatura Görüntüle
-        </button>
-        <button class="btn-red" onclick="viewFaturalar('proforma')">
-          Proforma Görüntüle
-        </button>
+      <div class="header">
+        <input
+          type="text"
+          class="search-bar"
+          id="searchInput"
+          placeholder="Fatura No ile ara..."
+          oninput="filterFaturalar()"
+        />
+        <div class="button-group">
+          <button class="btn-green" onclick="viewFaturalar('fatura')">
+            Fatura Görüntüle
+          </button>
+          <button class="btn-red" onclick="viewFaturalar('proforma')">
+            Proforma Görüntüle
+          </button>
+          <button class="btn-blue sort-btn" onclick="sortFaturalar('asc')">
+            Tarih ↑
+          </button>
+          <button class="btn-blue sort-btn" onclick="sortFaturalar('desc')">
+            Tarih ↓
+          </button>
+        </div>
       </div>
       <table>
         <thead>
@@ -39,6 +69,7 @@
             <th>Fatura No</th>
             <th>Müşteri</th>
             <th>Tarih</th>
+            <th>Tutar</th>
             <th>İşlemler</th>
           </tr>
         </thead>
@@ -46,35 +77,85 @@
       </table>
     </div>
     <script>
-      console.log("Test");
+      let faturaData = [];
+      let currentType = "fatura";
+
+      google.script.run
+        .withSuccessHandler((isAllowed) => {
+          if (!isAllowed)
+            document.body.innerHTML =
+              "<h2 style='color: red; text-align: center;'>Erişim izniniz yok!</h2>";
+          else viewFaturalar("fatura");
+        })
+        .checkAccess();
+
       function viewFaturalar(type) {
+        currentType = type;
         google.script.run
           .withSuccessHandler((data) => {
-            const tbody = document.getElementById("faturaTableBody");
-            tbody.innerHTML = "";
-            if (data.length === 0) {
-              tbody.innerHTML =
-                "<tr><td colspan='4'>Veri bulunamadı.</td></tr>";
-              return;
-            }
-            data.forEach((item, index) => {
-              const row = document.createElement("tr");
-              row.innerHTML = `
-                <td>${item.faturaNo}</td>
-                <td>${item.musteri}</td>
-                <td>${item.tarih}</td>
-                <td>
-                  <button class="btn-blue" onclick="viewPDF('${item.pdfUrl}')">🔍</button>
-                  <button class="btn-blue" onclick="editFatura(${index}, '${type}')">✏️</button>
-                </td>
-              `;
-              tbody.appendChild(row);
-            });
+            console.log("Received data:", data);
+            faturaData = Array.isArray(data) ? data : [];
+            renderFaturalar(faturaData);
           })
           .withFailureHandler((error) => {
+            console.error("Failed to load data:", error);
             Swal.fire("Hata!", error.message, "error");
+            faturaData = [];
+            renderFaturalar(faturaData);
           })
           .getFaturaList(type);
+      }
+
+      function renderFaturalar(data) {
+        const tbody = document.getElementById("faturaTableBody");
+        tbody.innerHTML = "";
+        if (data.length === 0) {
+          tbody.innerHTML = "<tr><td colspan='5'>Veri bulunamadı.</td></tr>";
+          return;
+        }
+        data.forEach((item, index) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${item.faturaNo || "Bilinmiyor"}</td>
+            <td>${item.musteri || "Bilinmiyor"}</td>
+            <td>${item.tarih || "Bilinmiyor"}</td>
+            <td>${item.tutar || "Bilinmiyor"}</td>
+            <td>
+              <button class="btn-blue" onclick="viewPDF('${
+                item.pdfUrl
+              }')">🔍</button>
+              <button class="btn-blue" onclick="editFatura(${index}, '${currentType}')">✏️</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      }
+
+      function filterFaturalar() {
+        const query = document
+          .getElementById("searchInput")
+          .value.toLowerCase();
+        if (!Array.isArray(faturaData)) {
+          console.warn("faturaData is not an array:", faturaData);
+          return;
+        }
+        const filteredData = faturaData.filter((item) =>
+          (item.faturaNo || "").toLowerCase().includes(query)
+        );
+        renderFaturalar(filteredData);
+      }
+
+      function sortFaturalar(order) {
+        if (!Array.isArray(faturaData)) {
+          console.warn("faturaData is not an array:", faturaData);
+          return;
+        }
+        const sortedData = [...faturaData].sort((a, b) => {
+          const dateA = new Date(a.tarih);
+          const dateB = new Date(b.tarih);
+          return order === "asc" ? dateA - dateB : dateB - dateA;
+        });
+        renderFaturalar(sortedData);
       }
 
       function viewPDF(url) {
@@ -83,13 +164,23 @@
       }
 
       function editFatura(index, type) {
+        console.log(`Editing ${type} at index ${index}`);
         google.script.run
           .withSuccessHandler((data) => {
+            console.log("Edit data received:", data);
             window.location.href = `${getAppUrl()}?page=${
               type === "fatura" ? "faturaKes" : "proformaKes"
             }&edit=${index}`;
           })
+          .withFailureHandler((error) => {
+            console.error("Edit failed:", error);
+            Swal.fire("Hata!", error.message, "error");
+          })
           .getFaturaByIndex(index, type);
+      }
+
+      function getAppUrl() {
+        return "<?!= ScriptApp.getService().getUrl(); ?>";
       }
     </script>
   </body>

@@ -329,19 +329,42 @@ function getFaturaList(type) {
   const sheet = ss.getSheetByName(
     type === "fatura" ? "Fatura_liste" : "Proforma_liste"
   );
-  if (!sheet || sheet.getLastRow() < 2) return [];
+  Logger.log(
+    `Fetching ${type} list from sheet: ${sheet ? sheet.getName() : "Not found"}`
+  );
 
-  const data = sheet.getRange("B2:H" + sheet.getLastRow()).getValues();
-  return data.map((row) => ({
-    faturaNo: row[0],
-    musteri: row[2],
-    tarih: row[3],
-    pdfUrl: row[6],
+  if (!sheet) {
+    Logger.log(`Sheet not found for type: ${type}`);
+    return [];
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    Logger.log(`No data found in ${type} sheet`);
+    return [];
+  }
+
+  const data = sheet.getRange("B2:H" + lastRow).getValues();
+  Logger.log(`Raw data for ${type}: ${JSON.stringify(data)}`);
+
+  const formattedData = data.map((row) => ({
+    faturaNo: row[0] || "",
+    musteri: row[2] || "",
+    tarih: row[3] ? new Date(row[3]).toLocaleDateString("tr-TR") : "",
+    tutar: row[5] || "", // Toplam sütunu (G sütunu, 6. index)
+    pdfUrl: row[6] || "",
   }));
+
+  Logger.log(`Formatted data for ${type}: ${JSON.stringify(formattedData)}`);
+  return formattedData;
 }
 
 function getFaturaByIndex(index, type) {
-  return getFaturaList(type)[index];
+  const list = getFaturaList(type);
+  Logger.log(
+    `Getting ${type} at index ${index}: ${JSON.stringify(list[index])}`
+  );
+  return list[index];
 }
 
 function getStokList() {
