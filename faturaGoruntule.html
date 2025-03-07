@@ -31,10 +31,6 @@
         border-bottom: 1px solid #ddd;
         text-align: left;
       }
-      .sort-btn {
-        padding: 5px 10px;
-        font-size: 0.9rem;
-      }
     </style>
   </head>
   <body>
@@ -54,12 +50,6 @@
           </button>
           <button class="btn-red" onclick="viewFaturalar('proforma')">
             Proforma Görüntüle
-          </button>
-          <button class="btn-blue sort-btn" onclick="sortFaturalar('asc')">
-            Tarih ↑
-          </button>
-          <button class="btn-blue sort-btn" onclick="sortFaturalar('desc')">
-            Tarih ↓
           </button>
         </div>
       </div>
@@ -93,12 +83,19 @@
         currentType = type;
         google.script.run
           .withSuccessHandler((data) => {
-            console.log("Received data:", data);
+            console.log("Received data for", type + ":", data);
             faturaData = Array.isArray(data) ? data : [];
+            // Fatura numarasına göre azalan sıralama (string karşılaştırması)
+            faturaData.sort((a, b) => {
+              const faturaNoA = (a.faturaNo || "").toString();
+              const faturaNoB = (b.faturaNo || "").toString();
+              return faturaNoB.localeCompare(faturaNoA); // Azalan sıralama
+            });
+            console.log("Sorted data for", type + ":", faturaData);
             renderFaturalar(faturaData);
           })
           .withFailureHandler((error) => {
-            console.error("Failed to load data:", error);
+            console.error("Failed to load data for", type + ":", error);
             Swal.fire("Hata!", error.message, "error");
             faturaData = [];
             renderFaturalar(faturaData);
@@ -135,27 +132,19 @@
         const query = document
           .getElementById("searchInput")
           .value.toLowerCase();
+        console.log("Search query:", query);
         if (!Array.isArray(faturaData)) {
           console.warn("faturaData is not an array:", faturaData);
           return;
         }
-        const filteredData = faturaData.filter((item) =>
-          (item.faturaNo || "").toLowerCase().includes(query)
-        );
-        renderFaturalar(filteredData);
-      }
-
-      function sortFaturalar(order) {
-        if (!Array.isArray(faturaData)) {
-          console.warn("faturaData is not an array:", faturaData);
-          return;
-        }
-        const sortedData = [...faturaData].sort((a, b) => {
-          const dateA = new Date(a.tarih);
-          const dateB = new Date(b.tarih);
-          return order === "asc" ? dateA - dateB : dateB - dateA;
+        const filteredData = faturaData.filter((item) => {
+          const faturaNo = item.faturaNo
+            ? item.faturaNo.toString().toLowerCase()
+            : "";
+          return faturaNo.includes(query);
         });
-        renderFaturalar(sortedData);
+        console.log("Filtered data:", filteredData);
+        renderFaturalar(filteredData);
       }
 
       function viewPDF(url) {

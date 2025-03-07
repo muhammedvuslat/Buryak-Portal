@@ -348,10 +348,10 @@ function getFaturaList(type) {
   Logger.log(`Raw data for ${type}: ${JSON.stringify(data)}`);
 
   const formattedData = data.map((row) => ({
-    faturaNo: row[0] || "",
+    faturaNo: row[0] ? row[0].toString() : "", // Fatura No string olarak dönüyor
     musteri: row[2] || "",
     tarih: row[3] ? new Date(row[3]).toLocaleDateString("tr-TR") : "",
-    tutar: row[5] || "", // Toplam sütunu (G sütunu, 6. index)
+    tutar: row[5] || "",
     pdfUrl: row[6] || "",
   }));
 
